@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f2efe8" />
+    <meta name="description" content="Gitgit — 本地 Git 项目同步工作台。" />
+    <title>Gitgit — 本地 Git 同步</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell" id="appShell">
+      <aside class="sidebar" aria-label="Gitgit 导航">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <div class="brand-name">Gitgit</div>
+            <div class="brand-kicker">本地同步工作台</div>
+          </div>
+        </div>
+
+        <div class="sidebar-label">项目仓库 <button class="quiet-icon" id="addRepositoryButton" title="通过本地连接器选择仓库" aria-label="选择仓库">+</button></div>
+        <div class="repo-list" id="repoList"></div>
+
+        <nav class="sidebar-nav" aria-label="General">
+          <div class="sidebar-label">工作区</div>
+          <button class="nav-item is-active" data-view="dashboard"><span class="nav-glyph">⌁</span>仪表盘</button>
+          <button class="nav-item" data-view="activity"><span class="nav-glyph">◷</span>活动记录</button>
+          <button class="nav-item" data-view="settings"><span class="nav-glyph">○</span>设置</button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="bridge-status" id="bridgeStatus">
+            <span class="status-dot is-muted"></span>
+            <div><strong>连接器未连接</strong><small>预览模式</small></div>
+          </div>
+          <div class="user-chip">
+            <div class="avatar" id="userAvatar">G</div>
+            <div><strong id="userName">Git 用户</strong><small id="userEmail">连接本地 Git</small></div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-shell">
+        <header class="topbar">
+          <div class="breadcrumbs"><span id="crumbRepository">工作区</span><span class="crumb-slash">/</span><strong id="crumbView">仪表盘</strong></div>
+          <div class="topbar-actions">
+            <button class="toolbar-button" id="refreshButton" title="刷新仓库"><span>↻</span><em>刷新</em></button>
+            <button class="toolbar-button" id="logsButton" title="查看执行日志"><span>≋</span><em>日志</em></button>
+            <button class="toolbar-button" id="bridgeButton" title="配置本地 Git 连接器"><span>⌘</span><em id="bridgeButtonText">连接</em></button>
+          </div>
+        </header>
+
+        <section class="view-stack" id="dashboardView">
+          <div class="dashboard-intro" id="dashboardIntro">
+            <div>
+              <div class="eyebrow" id="statusEyebrow">本地工作区</div>
+              <h1 id="dashboardTitle">不打开终端，<br /><i>直接同步项目。</i></h1>
+              <p id="dashboardSubtitle">选择一个本地 Git 仓库，查看真实分支、文件变更和远程状态。</p>
+            </div>
+            <div class="intro-actions">
+              <label class="commit-field"><span>提交信息</span><input id="commitInput" value="更新仓库" aria-label="提交信息" /></label>
+              <button class="button button-dark" id="syncButton"><span class="button-icon">↑</span><span id="syncButtonLabel">同步并推送</span></button>
+              <button class="button button-light" id="chooseButton">选择文件夹</button>
+            </div>
+          </div>
+
+          <div class="sync-runway" aria-label="同步进度">
+            <div class="runway-label"><span>同步轨道</span><span id="runwayHint">等待本地仓库</span></div>
+            <div class="runway-track" id="runwayTrack">
+              <div class="runway-line"></div>
+              <div class="runway-step is-current" data-stage="check"><b>01</b><span>检查</span></div>
+              <div class="runway-step" data-stage="stage"><b>02</b><span>暂存</span></div>
+              <div class="runway-step" data-stage="commit"><b>03</b><span>提交</span></div>
+              <div class="runway-step" data-stage="rebase"><b>04</b><span>变基</span></div>
+              <div class="runway-step" data-stage="push"><b>05</b><span>推送</span></div>
+            </div>
+          </div>
+
+          <section class="conflict-panel is-hidden" id="conflictPanel">
+            <div><span class="panel-index">需要处理</span><h2>检测到变基冲突</h2><p>Gitgit 已在推送前安全停止。请在编辑器中解决这些文件，然后刷新仓库。</p></div>
+            <div class="conflict-files" id="conflictFiles"></div>
+            <button class="button button-light" id="abortRebaseButton">中止变基</button>
+          </section>
+
+          <div class="stat-rail" id="statRail">
+            <div class="rail-stat"><span>仓库</span><strong id="statRepository">—</strong><small id="statPath">尚未选择文件夹</small></div>
+            <div class="rail-stat"><span>分支</span><strong id="statBranch">—</strong><small>当前分支</small></div>
+            <div class="rail-stat"><span>变更</span><strong id="statChanges">—</strong><small id="statChangeHint">工作区</small></div>
+            <div class="rail-stat"><span>远程</span><strong id="statRemote">—</strong><small id="statSync">同步状态</small></div>
+          </div>
+
+          <div class="content-grid">
+            <section class="panel changes-panel">
+              <div class="panel-heading"><div><span class="panel-index">01</span><h2>文件变更</h2></div><span class="panel-note" id="changesNote">所有本地变更</span></div>
+              <div class="ds-store-note is-hidden" id="dsStoreNote"><span>!</span><div><strong>检测到 .DS_Store</strong><small>建议将它加入 .gitignore。</small></div><button id="ignoreDsStoreButton">加入忽略</button></div>
+              <div class="changes-list" id="changesList"></div>
+            </section>
+            <aside class="panel repository-panel">
+              <div class="panel-heading"><div><span class="panel-index">02</span><h2>仓库信息</h2></div></div>
+              <div class="repo-facts">
+                <div><span>远程</span><strong id="factRemote">未配置远程仓库</strong></div>
+                <div><span>路径</span><strong class="path-value" id="factPath">—</strong></div>
+                <div><span>最近提交</span><strong id="factCommit">暂无 Gitgit 记录</strong></div>
+                <div><span>最近同步</span><strong id="factSync">尚未同步</strong></div>
+              </div>
+              <button class="text-action" id="addRemoteButton">+ 添加远程</button>
+            </aside>
+          </div>
+
+          <section class="panel activity-panel">
+            <div class="panel-heading"><div><span class="panel-index">03</span><h2>最近活动</h2></div><button class="text-action" data-view-link="activity">查看全部 ↗</button></div>
+            <div class="activity-list" id="recentActivityList"></div>
+          </section>
+
+          <div class="preview-callout is-hidden" id="previewCallout"><span class="callout-mark">i</span><div><strong>浏览器预览模式</strong><p>网页可以读取文件夹列表，但浏览器不能直接执行本机 Git 或访问 SSH 凭据。连接可选的本地 Git 连接器后，才能执行真实 fetch、rebase、commit 和 push。</p></div><button class="text-action" id="calloutConnectButton">连接连接器 →</button></div>
+        </section>
+
+        <section class="view-stack is-hidden" id="activityView">
+          <div class="page-heading"><div><div class="eyebrow">本地历史</div><h1>活动记录</h1><p>这里只记录由 Gitgit 完成的同步操作。</p></div></div>
+          <section class="panel activity-page-panel"><div class="activity-list" id="activityPageList"></div></section>
+        </section>
+
+        <section class="view-stack is-hidden" id="settingsView">
+          <div class="page-heading"><div><div class="eyebrow">配置</div><h1>设置</h1><p>网页保持轻量，凭据继续由本机 Git 环境管理。</p></div></div>
+          <div class="settings-grid">
+            <section class="panel settings-panel"><div class="panel-heading"><div><span class="panel-index">01</span><h2>本地 Git 连接器</h2></div><span class="connection-pill" id="settingsBridgePill">未连接</span></div><label class="field-label" for="bridgeUrl">连接器地址</label><input class="text-input" id="bridgeUrl" value="http://127.0.0.1:4387" spellcheck="false" /><p class="field-help">只有这个可选本地组件可以在 Mac 上调用 Git。</p><div class="settings-actions"><button class="button button-dark" id="saveBridgeButton">测试并保存</button><a class="text-action" href="./bridge/README.md" target="_blank" rel="noreferrer">连接器说明 ↗</a></div></section>
+            <section class="panel settings-panel"><div class="panel-heading"><div><span class="panel-index">02</span><h2>同步行为</h2></div></div><label class="toggle-row"><input type="checkbox" id="fetchBeforeSync" checked /><span class="toggle-ui"></span><span><strong>同步前 Fetch</strong><small>在变基前更新远程跟踪数据。</small></span></label><label class="toggle-row"><input type="checkbox" id="confirmBeforePush" checked /><span class="toggle-ui"></span><span><strong>推送前确认</strong><small>推送前显示提交信息和分支。</small></span></label><label class="field-label" for="commitTemplate">默认提交模板</label><input class="text-input" id="commitTemplate" value="更新 {repository}" /><p class="field-help">使用 <code>{repository}</code> 插入仓库名称。</p></section>
+            <section class="panel settings-panel privacy-panel"><div class="panel-heading"><div><span class="panel-index">03</span><h2>隐私边界</h2></div></div><div class="privacy-list"><div><span>01</span><strong>不上传</strong><p>网页不会上传项目文件。</p></div><div><span>02</span><strong>不保存令牌</strong><p>SSH Key、密码和 GitHub Token 不会进入浏览器。</p></div><div><span>03</span><strong>仅保存在本地</strong><p>活动记录只保存在当前浏览器的 localStorage 中。</p></div></div></section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="drop-overlay is-hidden" id="dropOverlay"><div class="drop-card"><div class="drop-orbit">＋</div><h2>拖入项目文件夹</h2><p>Gitgit 将读取浏览器预览。连接本地 Git 连接器后才能执行真实 Git 操作。</p></div></div>
+
+    <dialog class="modal" id="reviewModal"><div class="modal-kicker">推送前确认</div><h2 id="reviewTitle">准备同步</h2><div class="review-facts" id="reviewFacts"></div><div class="modal-actions"><button class="button button-light" data-close-dialog="reviewModal">取消</button><button class="button button-dark" id="confirmSyncButton">同步并推送</button></div></dialog>
+    <dialog class="modal" id="remoteModal"><div class="modal-kicker">远程配置</div><h2>添加远程仓库</h2><p class="modal-copy">这只会通过连接器写入当前选中的本地仓库。</p><label class="field-label" for="remoteNameInput">远程名称</label><input class="text-input" id="remoteNameInput" value="origin" /><label class="field-label" for="remoteUrlInput">远程 URL</label><input class="text-input" id="remoteUrlInput" placeholder="https://github.com/username/repository.git" spellcheck="false" /><div class="modal-actions"><button class="button button-light" data-close-dialog="remoteModal">取消</button><button class="button button-dark" id="saveRemoteButton">添加远程</button></div></dialog>
+    <dialog class="modal modal-wide" id="logsModal"><div class="modal-kicker">操作输出</div><div class="modal-title-row"><h2>执行日志</h2><button class="quiet-icon" data-close-dialog="logsModal" aria-label="关闭日志">×</button></div><div class="log-stream" id="logStream"></div></dialog>
+    <input type="file" id="folderPicker" webkitdirectory directory multiple hidden />
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
